@@ -1,0 +1,9 @@
+
+langchain
+langsmith
+langchain-community
+scikit-learn
+streamlit
+httpx==0.26.0
+langchain_openai
+
