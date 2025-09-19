@@ -1,12 +1,10 @@
-import sys
-import os
 import streamlit as st
 from dotenv import load_dotenv
-load_dotenv()
 from langchain_community.llms import Ollama
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
+load_dotenv()
 
 prompt = ChatPromptTemplate.from_messages(
     [
@@ -29,36 +27,38 @@ prompt = ChatPromptTemplate.from_messages(
         
     ])
 
-def generate_response(question,llm,temperature,max_tokens):
-    llm=Ollama(model=llm)
-    output_parser=StrOutputParser()
-    chain=prompt|llm|output_parser
-    answer=chain.invoke({'question':question})
-    return answer
+# Removed unused synchronous helper to favor streaming path
 
 
 ## #Title of the app
 st.title("ChatBot- Script Generation")
 
 
-## Select the OpenAI model
-llm=st.sidebar.selectbox("Select Open Source model",["codellama"])
+## Select the Open Source model
+selected_model = st.sidebar.selectbox("Select Open Source model", ["codellama"])
 
 ## Adjust response parameter
 temperature=st.sidebar.slider("Temperature",min_value=0.0,max_value=1.0,value=0.7)
 max_tokens = st.sidebar.slider("Max Tokens", min_value=50, max_value=300, value=150)
 
-## MAin interface for user input
+## Main interface for user input (gated behind submit to reduce reruns)
 st.write("What script do you need today?")
-user_input=st.text_input("You:")
 
+with st.form("gen_form"):
+    user_input = st.text_input("You:")
+    submitted = st.form_submit_button("Generate")
 
-
-if user_input :
-    response=generate_response(user_input,llm,temperature,max_tokens)
-    st.write(response)
+if submitted and user_input:
+    # Stream tokens for faster perceived latency
+    placeholder = st.empty()
+    streamed_text = ""
+    llm = Ollama(model=selected_model, model_kwargs={"temperature": temperature, "num_predict": max_tokens})
+    chain = (prompt | llm | StrOutputParser())
+    for chunk in chain.stream({"question": user_input}):
+        streamed_text += chunk
+        placeholder.markdown(streamed_text)
     st.write(":Stay Tuned(Neha Mandwal)")
-else:
+elif submitted and not user_input:
     st.write("Please provide the user input")
 
 
